@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+var argv = require('yargs').argv;
+var path = require('path');
+var fs = require('fs-extra');
+var gutil = require('gulp-util');
+var readline = require('readline');
+
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+var MODULE_DEFAULT_PARENT_PATH = path.resolve(__dirname, 'projects/uisf/business');
+var MODULE_TPL_PATH = path.resolve(__dirname, 'projects/tmpl');
+var JSX_TPL = 'index.jsx';
+var LESS_TPL = 'index.less';
+
+var moduleName = argv.name;
+if (!/^[A-Z]+$/.test(moduleName[0])) {
+  !/^[a-z]+$/.test(moduleName[0]) &&
+  gutil.log(gutil.colors.bgRed.white('The first letter of module name must be UpperCase!!!')) &&
+  process.exit(1);
+  moduleName = moduleName.split('').map(function (val, index) {
+    return index ? val : val.toUpperCase();
+  }).join('');
+  gutil.log(gutil.colors.bgYellow.gray('The first letter of module name must be UpperCase. So it has changed to ' + moduleName))
+}
+var moduleParentPath = argv.path || MODULE_DEFAULT_PARENT_PATH;
+var modulePath = moduleParentPath + '/' + moduleName;
+console.log(modulePath);
+if (fs.existsSync(modulePath)) {
+  gutil.log(gutil.colors.bgRed.white('module has already existed!!!! pls reset module name!!!!!'));
+  process.exit(1);
+} else {
+  var moduleInfo = {
+    name: moduleName,
+    path: modulePath
+  };
+  gutil.log(gutil.colors.bgBlue.white('Pls type your name:'));
+  rl.question('', function (author) {
+    moduleInfo.author = author || '无名大侠';
+    gutil.log(gutil.colors.bgBlue.white('Pls type your module version (default:1.0.0):'));
+    rl.question('', function (version) {
+      moduleInfo.version = version || '1.0.0';
+      gutil.log(gutil.colors.bgBlue.white('Pls type your module description (default:module name):'));
+      rl.question('', function (description) {
+        moduleInfo.description = description || moduleInfo.name;
+        rl.close();
+      })
+    })
+  });
+  rl.on('close', function () {
+    var jsx = fs.readFileSync(MODULE_TPL_PATH + '/' + JSX_TPL).toString();
+    jsx = jsx.replace(/{%author%}/g, moduleInfo.author);
+    jsx = jsx.replace(/{%version%}/g, moduleInfo.version);
+    jsx = jsx.replace(/{%description%}/g, moduleInfo.description);
+    jsx = jsx.replace(/{%name%}/g, moduleInfo.name);
+    jsx = jsx.replace(/{%createDate%}/g, (new Date()).toGMTString());
+    fs.mkdirSync(moduleInfo.path);
+    fs.writeFileSync(moduleInfo.path + '/' + moduleInfo.name + '.jsx', jsx);
+    fs.copySync(MODULE_TPL_PATH + '/' + LESS_TPL, moduleInfo.path + '/' + moduleInfo.name + '.less');
+    gutil.log(gutil.colors.bgBlue.white('Module ' + moduleInfo.name + 'has generated and the path is : ' + moduleInfo.path));
+    process.exit(1);
+  });
+}
